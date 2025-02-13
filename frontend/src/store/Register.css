@@ -1,0 +1,117 @@
+/* Register.css */
+
+/* Container for the registration form */
+.register-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.register-container h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: #333;
+}
+
+.register-container input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+/* Focus state for input fields */
+.register-container input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+/* Register button styles */
+.register-button {
+  width: 100%;
+  padding: 14px;
+  background-color: #4CAF50;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.register-button:hover {
+  background-color: #45a049;
+}
+
+/* Google OAuth button container */
+.google-login-container {
+  margin-top: 20px;
+}
+
+/* Google OAuth button styles */
+.g-signin2 {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px;
+  background-color: #4285F4;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+
+/* Hover effect for Google button */
+.g-signin2:hover {
+  background-color: #357ae8;
+}
+
+/* Payment button styles */
+.payment-container {
+  margin-top: 20px;
+}
+
+.payment-button {
+  width: 100%;
+  padding: 14px;
+  background-color: #FF5722;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.payment-button:hover {
+  background-color: #e64a19;
+}
+
+/* Styling for select input fields (Ticket Type and Quantity) */
+.ticket-select-container {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.ticket-select-container select {
+  width: 48%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Styling for form fields and buttons */
+.register-container form {
+  margin-bottom: 30px;
+}
