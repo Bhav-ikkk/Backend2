@@ -9,11 +9,19 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const createDefaultAdmin = async () => {
     const adminExists = await User.findOne({ email: 'ayush.1429agr@gmail.com' });
     if (!adminExists) {
+        // Define the default values for the missing fields
+        const defaultCity = 'SomeCity';  // Replace with your desired city
+        const defaultCollegeName = 'SomeCollege';  // Replace with your desired college name
+        const defaultEnrollmentNumber = '123456789';  // Replace with your desired enrollment number
+
         const admin = await User.create({
             name: 'Ayush',
             email: 'ayush.1429agr@gmail.com',
-            password: '3264623', // Make sure to hash the password properly in a real app
+            password: '3264623', // This will be hashed automatically when saved
             role: 'admin', // Admin role for this user
+            city: defaultCity,
+            collegeName: defaultCollegeName,
+            enrollmentNumber: defaultEnrollmentNumber
         });
 
         console.log('Default admin user created:', admin);
@@ -49,97 +57,49 @@ const setCookies = (res, accessToken, refreshToken) => {
 };
 
 // Admin Signup route (only allows admin users to sign up other admins)
-export const adminSignup = async (req, res) => {
-    console.log('Admin signup request received:', req.body);
-    const { email, password, name, role } = req.body;
-
-    try {
-        // Check if the user requesting the admin signup is an admin
-        if (req.user && req.user.role === 'admin') {
-            const userExists = await User.findOne({ email });
-
-            if (userExists) {
-                return res.status(400).json({ message: "User already exists" });
-            }
-
-            // Validate role, but only allow 'admin' or 'customer' roles
-            const validRoles = ['customer', 'admin'];
-            const userRole = validRoles.includes(role) ? role : 'customer';
-            
-            const user = await User.create({ name, email, password, role: userRole });
-
-            console.log('Admin created:', user);
-
-            const { accessToken, refreshToken } = generateTokens(user._id);
-            await storeRefreshToken(user._id, refreshToken);
-            setCookies(res, accessToken, refreshToken);
-
-            res.status(201).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            });
-        } else {
-            // If the user is not an admin, reject the request
-            res.status(403).json({ message: "Unauthorized, only admins can create admin users" });
-        }
-    } catch (error) {
-        console.log("Error in admin signup controller", error.message);
-        res.status(500).json({ message: error.message });
-    }
-};
-
-const generateToken = (user) => {
-    return jwt.sign(
-        {
-            userId: user._id,
-            role: user.role, // Add role to the payload
-        },
-        process.env.ACCESS_TOKEN_SECRET, // Make sure to set this in your environment variables
-        { expiresIn: "1h" } // Set an expiration time for the token (1 hour, for example)
-    );
-};
-
+// signup controller
+// signup controller
 export const signup = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        console.log("Received data:", req.body);  // Log request data
+        
+        const { name, email, password, city, collegeName, enrollmentNumber } = req.body;
 
-        // Check if user already exists
+        if (!city || !collegeName || !enrollmentNumber) {
+            return res.status(400).json({
+                message: "City, College Name, and Enrollment Number are required"
+            });
+        }
+
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: "Email already in use" });
         }
 
-        // Create new user
         const newUser = new User({
             name,
             email,
-            password, // Password will be hashed in the schema's pre-save hook
+            password,
+            city,
+            collegeName,
+            enrollmentNumber,
         });
 
-        // Save the user to the database
         await newUser.save();
 
-        // Generate JWT token
-        const token = generateToken(newUser);
+        const { accessToken, refreshToken } = generateTokens(newUser._id);
 
-        // Send response with the token
         res.status(201).json({
             message: "User created successfully",
-            token, // Send the token in the response
-            user: {
-                id: newUser._id,
-                name: newUser.name,
-                email: newUser.email,
-                role: newUser.role, // Send the role if needed
-            },
+            token: accessToken,
+            user: newUser
         });
     } catch (error) {
         console.error("Error during signup:", error.message);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
 // Google signup route
 export const googleSignup = async (req, res) => {
     const { token } = req.body;
