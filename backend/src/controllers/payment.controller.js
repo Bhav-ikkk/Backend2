@@ -1,137 +1,81 @@
 import Stripe from 'stripe';
-import Event from '../models/event.model.js';
-import User from '../models/user.model.js';
-import Payment from '../models/payment.model.js';
+import { generateTicket } from '../utils/generateTicket.js';  // Added .js extension
+import { sendEmail } from '../utils/emailUtils.js';  // Added .js extension
+import Event from '../models/event.model.js';  // Added .js extension
+import User from '../models/user.model.js';  // Added .js extension
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripeClient = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Create Checkout Session
+// Create Stripe checkout session for event purchase
 export const createCheckoutSession = async (req, res) => {
+  console.log('Received create-checkout-session request');
   try {
-    const { eventId, quantity, ticketType } = req.body;
-    const userId = req.user._id;
+    const { eventId, userId, quantity } = req.body;
 
-    // Find event and user data from the database
-    const event = await Event.findById(eventId);
-    const user = await User.findById(userId);
+    // Retrieve the event and user from the database
+    const event = await Event.findById(eventId);  // Change to MongoDB's `findById` if you're using mongoose
+    const user = await User.findById(userId);    // Change to MongoDB's `findById`
 
     if (!event || !user) {
-      return res.status(404).json({ message: 'Event or User not found' });
+      return res.status(404).json({ error: 'Event or user not found' });
     }
 
-    // Adjust the price based on ticket type
-    let ticketPrice = event.price;
-    if (ticketType === 'VIP') {
-      ticketPrice = event.price * 1.5;
-    } else if (ticketType === 'Student') {
-      ticketPrice = event.price * 0.8;
-    }
-
-    // Create the Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripeClient.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'inr',
-            product_data: {
-              name: event.name,
-              description: `${ticketType} Ticket for ${event.name}`,
-            },
-            unit_amount: ticketPrice * 100, // Convert price to cents
+      line_items: [{
+        price_data: {
+          currency: 'inr',
+          product_data: {
+            name: event.name,
           },
-          quantity: quantity,
+          unit_amount: event.price * 100, // Convert to paise
         },
-      ],
+        quantity: quantity,
+      }],
       mode: 'payment',
-      success_url: `${process.env.CLIENT_URL}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/checkout-cancel`,
+      success_url: `${process.env.BASE_URL}/api/complete?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.BASE_URL}/api/cancel`,
+      metadata: {
+        event_id: event.id,
+        user_id: user.id,
+        quantity,
+      },
     });
 
-    // Store the payment information in the database with status 'pending'
-    const payment = new Payment({
-      user: userId,
-      event: eventId,
-      amount: ticketPrice * quantity * 100, // Amount in cents
-      status: 'pending',
-      paymentMethod: 'card',
-      stripeSessionId: session.id,
-    });
-
-    await payment.save();
-
-    // Send the session ID back to the client to redirect them to Stripe Checkout
-    res.status(200).json({ sessionId: session.id });
-  } catch (error) {
-    console.error('Error creating Stripe checkout session:', error);
-    res.status(500).json({ message: 'Server error creating Stripe checkout session' });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Error creating checkout session:', err);
+    res.status(500).json({ error: 'An error occurred while creating the checkout session' });
   }
 };
 
-// Webhook to handle Stripe events (e.g., payment completion)
-export const handleStripeWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  let event;
-
+export const paymentSuccess = async (req, res) => {
+  console.log('Payment successful!');
   try {
-    // Verify the webhook event signature
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (error) {
-    console.error('Error verifying webhook signature:', error);
-    return res.status(400).send(`Webhook Error: ${error.message}`);
-  }
+    const sessionId = req.query.session_id;
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+    const { metadata } = session;
 
-  // Handle the 'checkout.session.completed' event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
+    const event = await Event.findById(metadata.event_id);
+    const user = await User.findById(metadata.user_id);
 
-    try {
-      // Find the payment record in your database using the session ID
-      const payment = await Payment.findOne({ stripeSessionId: session.id });
-
-      if (!payment) {
-        console.error('Payment not found for session ID:', session.id);
-        return res.status(404).send('Payment not found');
-      }
-
-      // Update the payment status to 'completed'
-      payment.status = 'completed';
-      await payment.save();
-
-      console.log('Payment successfully completed:', payment);
-    } catch (err) {
-      console.error('Error updating payment status:', err);
-      return res.status(500).send('Internal server error');
+    if (!event || !user) {
+      return res.status(404).json({ error: 'Event or user not found' });
     }
-  }
 
-  // Return a 200 response to acknowledge receipt of the event
-  res.status(200).json({ received: true });
+    // Generate ticket and send confirmation email
+    const ticket = generateTicket(event, user);
+    await sendEmail(user.email, 'Your Event Ticket', ticket);
+
+    res.send('Payment successful. Ticket has been emailed to you!');
+  } catch (err) {
+    console.error('Error handling payment success:', err);
+    res.status(500).json({ error: 'An error occurred while processing payment success' });
+  }
 };
 
-// Verify Payment Status
-export const verifyPayment = async (req, res) => {
-  const { sessionId } = req.body;
-
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (session.payment_status === 'paid') {
-      // Update the payment status in your database
-      const payment = await Payment.findOneAndUpdate(
-        { stripeSessionId: sessionId },
-        { status: 'completed' },
-        { new: true }
-      );
-
-      return res.status(200).json({ success: true, payment });
-    } else {
-      return res.status(400).json({ success: false });
-    }
-  } catch (error) {
-    console.error("Error verifying payment:", error);
-    return res.status(500).json({ message: "Error verifying payment" });
-  }
+export const paymentCancel = (req, res) => {
+  console.log('Payment cancelled!');
+  res.redirect('/');
 };
+
