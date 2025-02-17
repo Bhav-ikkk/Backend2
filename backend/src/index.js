@@ -8,9 +8,7 @@ import session from "express-session";
 
 import authRoutes from "./routes/auth.route.js";
 import eventRoutes from "./routes/event.route.js";
-import cartRoutes from "./routes/cart.route.js";
-import paymentRoutes from "./routes/payment.route.js";  // Payment routes imported
-import analyticsRoutes from "./routes/analytics.route.js";
+import paymentRoutes from "./routes/payment.route.js"; // Payment routes imported
 
 import { connectDB } from "./lib/db.js";
 
@@ -21,44 +19,30 @@ const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
 
+// Middleware setup
 app.use(cookieParser());
-
-// CORS middleware (Ensure you only have one instance)
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000', // Client URL or localhost
   credentials: true,
 }));
-
-// Logging middleware (optional)
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-
-app.use(express.json({ limit: "10mb" })); // Allows parsing of larger request bodies
-
-// Session setup (secure session cookies for production)
+app.use(express.json({ limit: "10mb" }));
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'hi_its_a_secret',  // Use environment variables for security
+  secret: process.env.SESSION_SECRET || 'hi_its_a_secret',
   resave: false,
   saveUninitialized: true,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',  // Ensure secure cookies in production
-  },
+  cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
 
-// Passport initialization for authentication
+// Passport initialization
 app.use(passport.initialize());
 app.use(passport.session());
 
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/api/cart", cartRoutes);
-app.use('/api', paymentRoutes); // Payment routes that handle payment session and webhook
-app.use("/api/analytics", analyticsRoutes);
+app.use("/api", paymentRoutes); // Payment routes
 
-// Serve frontend in production mode
+// Serve frontend for production
 if (process.env.NODE_ENV !== "development") {
   app.use(express.static(path.join(__dirname, "/frontend/dist")));
   app.get("*", (req, res) => {
@@ -91,6 +75,6 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log("Server is running on http://localhost:" + PORT);
+  console.log(`Server is running on http://localhost:${PORT}`);
   connectDB(); // Connect to the database
 });
