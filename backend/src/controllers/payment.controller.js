@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { generateTicket } from '../utils/generateTicket.js';  // Added .js extension
-import { sendEmail } from '../utils/emailUtils.js';  // Added .js extension
+import { sendEmail } from '../utils/emailutils.js';  // Added .js extension
 import Event from '../models/event.model.js';  // Added .js extension
 import User from '../models/user.model.js';  // Added .js extension
 
@@ -13,8 +13,8 @@ export const createCheckoutSession = async (req, res) => {
     const { eventId, userId, quantity } = req.body;
 
     // Retrieve the event and user from the database
-    const event = await Event.findById(eventId);  // Change to MongoDB's `findById` if you're using mongoose
-    const user = await User.findById(userId);    // Change to MongoDB's `findById`
+    const event = await Event.findById(eventId);  
+    const user = await User.findById(userId);    
 
     if (!event || !user) {
       return res.status(404).json({ error: 'Event or user not found' });
@@ -78,4 +78,3 @@ export const paymentCancel = (req, res) => {
   console.log('Payment cancelled!');
   res.redirect('/');
 };
-
