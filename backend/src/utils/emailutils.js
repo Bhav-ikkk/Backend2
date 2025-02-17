@@ -15,7 +15,7 @@ export const sendEmail = async (to, subject, body) => {
       from: process.env.EMAIL_USER,
       to,
       subject,
-      text: body,
+      html: body, // Changed from 'text' to 'html' to support HTML emails
     };
 
     await transporter.sendMail(mailOptions);
